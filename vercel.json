@@ -1,7 +1,1 @@
-﻿{
-  "framework": null,
-  "buildCommand": null,
-  "installCommand": null,
-  "outputDirectory": ".",
-  "rewrites": [{ "source": "/RetroRoomPortfolio/(.*)", "destination": "/$1" }]
-}
+{"framework":null,"buildCommand":null,"installCommand":null,"outputDirectory":".","rewrites":[{"source":"/RetroRoomPortfolio/(.*)","destination":"/$1"}]}
