@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <title>Futbolín</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="js/SAT.js"></script>
+    <script>
+        /* Ajusta el juego (740 px fijos) al espacio disponible de la ventana. */
+        function fit() {
+            var c = document.getElementById('container');
+            var k = Math.min(window.innerWidth / 760, window.innerHeight / 760);
+            c.style.transformOrigin = '0 0';
+            c.style.transform = 'scale(' + k + ')';
+            c.style.margin = '0';
+            c.style.position = 'absolute';
+            c.style.left = ((window.innerWidth - 740 * k) / 2) + 'px';
+            c.style.top = ((window.innerHeight - 740 * k) / 2) + 'px';
+        }
+        window.addEventListener('load', fit);
+        window.addEventListener('resize', fit);
+    </script>
+   <link rel="stylesheet" type="text/css" href="css/style.css" />
+</head>
+<body>
+<div id = "container">
+
+
+    <div id ="startScreen">
+        <div id="title">Futbolín</div>
+        <div id="options">
+            <div class="opt"><span>Modo</span>
+                <button type="button" data-k="mode" data-v="1" class="on">1 JUGADOR</button>
+                <button type="button" data-k="mode" data-v="2">2 JUGADORES</button>
+            </div>
+            <div class="opt" id="diffRow"><span>Dificultad</span>
+                <button type="button" data-k="diff" data-v="easy">FÁCIL</button>
+                <button type="button" data-k="diff" data-v="normal" class="on">NORMAL</button>
+                <button type="button" data-k="diff" data-v="hard">DIFÍCIL</button>
+            </div>
+        </div>
+        <button id="play" onclick="init()">JUGAR</button>
+        <br><br>
+        <img src="img/help.png" height="100" width="150" id="help">
+        <br>
+        <span id ="instructions">Rojo: flechas ← →<br>Azul (2 jugadores): A y D<br>Gana quien llegue a 5 goles o tenga más al terminar el tiempo</span>
+        <div id="foot">Código: Prashant Baid (licencia MIT)<br><a href="https://github.com/prashantbaid/football-game" target="_blank">Source Code</a></div>
+    </div>
+
+    <div id ="gameOverScreen">
+        <div id="title">Futbolín</div>
+        <button id="playagain" onclick="init()">OTRA VEZ</button>
+        <br><br><br>
+    </div>
+
+
+    <canvas id="myCanvas" width="480" height="720"></canvas>
+    <script>
+        /* Opciones de la pantalla de inicio: se leen en init() (football.js). */
+        window.gameConfig = { mode: 1, diff: 'normal' };
+        document.querySelectorAll('#options button').forEach(function (b) {
+            b.addEventListener('click', function () {
+                var k = b.getAttribute('data-k');
+                var v = b.getAttribute('data-v');
+                window.gameConfig[k] = k === 'mode' ? Number(v) : v;
+                document.querySelectorAll('#options button[data-k="' + k + '"]').forEach(function (o) { o.classList.remove('on'); });
+                b.classList.add('on');
+                document.getElementById('diffRow').style.opacity = window.gameConfig.mode === 2 ? 0.35 : 1;
+            });
+        });
+    </script>
+    <div id="score">
+        <div id = "timer">
+            Tiempo
+            <div id = "countdown">03:00</div>
+        </div>
+        <h3 id = "blue">Azul</h3>
+        <div id="away">0</div>
+        <h3 id = "red">Rojo</h3>
+        <div id="home">0</div>
+        <div id = "status"></div>
+        <div id = "credits"> Autor <br><a href = "http://twitter.com/prashantbaid" target="_blank">@prashantbaid</a></div>
+    </div>
+    
+</div>
+</body>
+<script src="js/football.js"></script>
+</html>

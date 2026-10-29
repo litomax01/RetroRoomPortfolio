@@ -1,0 +1,11 @@
+Model Information:
+* title:	Evangelion Unit-01
+* source:	https://sketchfab.com/3d-models/evangelion-unit-01-fdbd09f6b79c493b8aa9ead3b8121c2d
+* author:	timedrfreeman (https://sketchfab.com/timedrfreeman)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Evangelion Unit-01" (https://sketchfab.com/3d-models/evangelion-unit-01-fdbd09f6b79c493b8aa9ead3b8121c2d) by timedrfreeman (https://sketchfab.com/timedrfreeman) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

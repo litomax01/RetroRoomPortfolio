@@ -1,0 +1,11 @@
+Model Information:
+* title:	Foosball table
+* source:	https://sketchfab.com/3d-models/foosball-table-5f70863c2cf74e99ad084a493209dbac
+* author:	3D Content Online (https://sketchfab.com/hknoblauch)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Foosball table" (https://sketchfab.com/3d-models/foosball-table-5f70863c2cf74e99ad084a493209dbac) by 3D Content Online (https://sketchfab.com/hknoblauch) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

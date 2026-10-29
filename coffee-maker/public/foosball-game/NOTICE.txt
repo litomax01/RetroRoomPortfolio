@@ -1,0 +1,5 @@
+Futbolin: "football-game" de Prashant Baid, licencia MIT (ver LICENSE).
+https://github.com/prashantbaid/football-game
+Modificaciones: textos en espanol, equipos renombrados (Azul y Rojo), escalado a la ventana,
+modo de 1 o 2 jugadores, tres dificultades, meta de 5 goles, sonidos (WebAudio) y estilo neon.
+Usa SAT.js (c) Jim Riecken, licencia MIT: https://github.com/jriecken/sat-js

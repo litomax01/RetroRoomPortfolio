@@ -1,0 +1,11 @@
+Model Information:
+* title:	Majora's mask
+* source:	https://sketchfab.com/3d-models/majoras-mask-d0a8b7c7fc804b8186632e1fbe8abcba
+* author:	eggiscool6253 (https://sketchfab.com/eggiscool6253)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Majora's mask" (https://sketchfab.com/3d-models/majoras-mask-d0a8b7c7fc804b8186632e1fbe8abcba) by eggiscool6253 (https://sketchfab.com/eggiscool6253) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

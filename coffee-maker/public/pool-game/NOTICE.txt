@@ -1,0 +1,11 @@
+Classic-Pool-Game, (c) 2018 Chen Shmilovich, licencia MIT (ver LICENSE.txt).
+https://github.com/henshmi/Classic-Pool-Game
+
+Basado en el codigo de "Building JavaScript Games" de Arjan Egges (Apress, 2014),
+https://github.com/apress/building-javascript-games
+cuya licencia permite uso personal NO comercial. Este juego se incluye solo en un portafolio
+personal sin fines comerciales. Si el sitio llegara a monetizarse, hay que retirar este juego.
+
+Musica del menu: "Bossa Antigua" de Kevin MacLeod (incompetech.com),
+licencia Creative Commons Atribucion 3.0: http://creativecommons.org/licenses/by/3.0/
+LAB.js (c) Kyle Simpson, licencia MIT: https://github.com/getify/LABjs

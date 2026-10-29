@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Super Nintendo</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0720; color: #e8f6ff; font-family: "Press Start 2P", "Courier New", monospace; overflow: hidden; }
+  #menu { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 16px; box-sizing: border-box; text-align: center; }
+  h1 { font-size: 18px; color: #ffd84d; margin: 0 0 6px; text-shadow: 3px 3px 0 #ff3ea5; }
+  p { font-size: 10px; color: #9fa6d6; margin: 0 0 8px; }
+  button { font: inherit; font-size: 12px; line-height: 1.6; width: min(420px, 90%); padding: 14px 12px; color: #e8f6ff; background: #1c1450; border: 3px solid #5df2ff; cursor: pointer; box-shadow: 4px 4px 0 rgba(93,242,255,.35); }
+  button:hover, button:focus-visible { background: #5df2ff; color: #0a0720; outline: none; }
+  #wrap { width: 100%; height: 100%; display: none; }
+  #err { font-size: 10px; color: #ff3ea5; display: none; max-width: 420px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div id="menu">
+  <h1>SUPER NINTENDO</h1>
+  <p id="sub">Elige un juego</p>
+  <button data-rom="roms/mario-allstars-world.zip">Super Mario All-Stars + World</button>
+  <button data-rom="roms/mario-kart.zip">Super Mario Kart</button>
+  <button data-rom="roms/zelda.zip">Zelda: A Link to the Past</button>
+  <div id="err">No se pudo cargar el emulador. Se necesita conexion a internet (se carga desde cdn.emulatorjs.org).</div>
+</div>
+<div id="wrap"><div id="game"></div></div>
+<script>
+  var lang = (navigator.language || 'es').slice(0, 2) === 'en' ? 'en' : 'es';
+  if (lang === 'en') document.getElementById('sub').textContent = 'Pick a game';
+  var buttons = document.querySelectorAll('button[data-rom]');
+  buttons[0].focus();
+  buttons.forEach(function (b) {
+    b.addEventListener('click', function () {
+      var rom = b.getAttribute('data-rom');
+      // Las ROMs son juegos comerciales: no se publican con el sitio, solo funcionan en local.
+      fetch(rom, { method: 'HEAD' }).then(function (r) {
+        if (r.ok) start(rom); else noRom();
+      }).catch(noRom);
+    });
+  });
+  function noRom() {
+    var e = document.getElementById('err');
+    e.textContent = lang === 'en'
+      ? 'The game files are not included in the published version (commercial ROMs).'
+      : 'Los juegos no estan incluidos en la version publicada (ROMs comerciales).';
+    e.style.display = 'block';
+  }
+  function start(rom) {
+    document.getElementById('menu').style.display = 'none';
+    var g = document.getElementById('wrap');
+    g.style.display = 'block';
+    window.EJS_player = '#game';
+    window.EJS_core = 'snes';
+    window.EJS_gameUrl = rom;
+    window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+    window.EJS_startOnLoaded = true;
+    window.EJS_color = '#5df2ff';
+    window.EJS_language = lang === 'en' ? 'en-US' : 'es-ES';
+    var s = document.createElement('script');
+    s.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
+    s.onerror = function () {
+      g.style.display = 'none';
+      document.getElementById('menu').style.display = 'flex';
+      document.getElementById('err').style.display = 'block';
+    };
+    document.body.appendChild(s);
+  }
+</script>
+</body>
+</html>
