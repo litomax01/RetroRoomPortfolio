@@ -44,3 +44,4 @@ __screenshots__/
 Thumbs.db
 
 # ROMs comerciales: solo para uso local, no se suben ni se publican
+.vercel

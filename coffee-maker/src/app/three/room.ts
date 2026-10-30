@@ -85,6 +85,8 @@ export interface RoomParts {
   /** Figura de Evangelion en la esquina derecha (la rellena el modelo descargado). */
   eva: THREE.Group;
   accent: THREE.PointLight[];
+  /** Colores que la sala tiñe según la canción: `mix` 0 = color principal, 1 = secundario. */
+  tintables: Array<{ color: THREE.Color; base: THREE.Color; mix: number }>;
   bartender: Bartender;
   /** Materiales a los que se aplican texturas PBR al cargarlas. */
   pbr: Record<'floor' | 'wood', THREE.MeshStandardMaterial[]>;
@@ -138,7 +140,7 @@ export function buildRoom(): RoomParts {
   };
 
   // ---- Luz: ambiente morada y puntos cálidos y de neón ----
-  root.add(new THREE.HemisphereLight('#5a4cc0', '#120a2a', 0.8));
+  root.add(new THREE.HemisphereLight('#7a66f0', '#2a1d5e', 0.9));
   // En táctil se omiten las luces de acento (`optional`): cada luz se calcula por píxel en todos los materiales
   const lowEnd = window.matchMedia('(pointer: coarse)').matches;
   const addLight = (color: string, intensity: number, dist: number, x: number, y: number, z: number, optional = false) => {
@@ -218,6 +220,39 @@ export function buildRoom(): RoomParts {
   // Luces empotradas
   const spotDisc = glow('#fff2d8', 3);
   for (const x of [-5, -1.7, 1.7, 5]) for (const z of [-3, 0.5, 4, 7]) mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.02, 14), spotDisc, [x, 6.55, z], root);
+
+  // ---- Juego de luz: neón al pie de las paredes y charcos de color sobre el piso (sin luces extra) ----
+  const tintables: RoomParts['tintables'] = [];
+  const baseStrip = (color: string, size: [number, number, number], pos: [number, number, number], mix: number) => {
+    const m = glow(color, 2.6);
+    m.userData['pulse'] = 2.6;
+    tintables.push({ color: m.emissive, base: m.emissive.clone(), mix });
+    mesh(box(...size), m, pos, root);
+  };
+  baseStrip('#19e6d2', [0.06, 0.06, 14.6], [-7.93, 0.55, 1.5], 0);
+  baseStrip('#ff2fa8', [0.06, 0.06, 14.6], [7.93, 0.55, 1.5], 1);
+  baseStrip('#7a4dff', [15.8, 0.06, 0.06], [0, 0.55, -5.93], 0.5);
+  const lightPool = (color: string, size: number, x: number, z: number, opacity: number, mix: number) => {
+    const tex = canvasTex(64, 64, (g) => {
+      const r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      r.addColorStop(0, 'rgba(255,255,255,1)');
+      r.addColorStop(0.45, 'rgba(255,255,255,0.35)');
+      r.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = r;
+      g.fillRect(0, 0, 64, 64);
+    });
+    const poolMat = new THREE.MeshBasicMaterial({ map: tex, color, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+    tintables.push({ color: poolMat.color, base: poolMat.color.clone(), mix });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), poolMat);
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(x, 0.03, z);
+    m.renderOrder = 1;
+    root.add(m);
+  };
+  lightPool('#19e6d2', 8, -5.4, 0.5, 0.42, 0);
+  lightPool('#ff2fa8', 8, 5.4, 0.5, 0.42, 1);
+  lightPool('#7a4dff', 9, 0, -3.8, 0.4, 0.5);
+  lightPool('#ffb877', 7, -1, 3.2, 0.3, 0.5);
 
   // ---- TV de pared ("Sobre mí"), mueble bajo y estantes ----
   const board = new Panel(1024, 640, 3.3, 2.0625);
@@ -638,6 +673,7 @@ export function buildRoom(): RoomParts {
     chessTable: table,
     eva,
     accent: [lightRecord, washTeal, washMagenta, washIndigo],
+    tintables,
     bartender: {
       root: bt,
       body,

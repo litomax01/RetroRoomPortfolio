@@ -60,7 +60,7 @@
     </ul>
   }
 
-  <nav class="dock" [attr.aria-label]="store.content().siteName">
+  <nav class="dock" [class.in-section]="store.mode() !== 'menu'" [attr.aria-label]="store.content().siteName">
     <div class="dock-group">
       <button type="button" [class.on]="store.mode() === 'about'" (click)="exp?.goTo('about')" (mouseenter)="exp?.highlight('about')" (focus)="exp?.highlight('about')" (mouseleave)="exp?.highlight(null)" (blur)="exp?.highlight(null)">{{ store.content().ui['about'] }}</button>
       <button type="button" [class.on]="store.mode() === 'projects'" (click)="exp?.goTo('projects')" (mouseenter)="exp?.highlight('projects')" (focus)="exp?.highlight('projects')" (mouseleave)="exp?.highlight(null)" (blur)="exp?.highlight(null)">{{ store.content().ui['projects'] }}</button>
@@ -79,7 +79,7 @@
 
   @if (store.pinballOpen()) {
     <div class="pinball" (click)="closePinball()">
-      <section class="pb-window" role="dialog" aria-modal="true" [attr.aria-label]="store.content().ui['pinballTitle']" [style.width.px]="pinballSize().w" (click)="$event.stopPropagation()">
+      <section class="pb-window" role="dialog" aria-modal="true" [attr.aria-label]="store.content().ui['pinballTitle']" [style.width.px]="pinballSize().w * pinballScale()" (click)="$event.stopPropagation()">
         <div class="pb-head">
           <label class="pb-vol">
             <span>{{ store.content().ui['volume'] }}</span>
@@ -88,7 +88,16 @@
           <span class="pb-help">{{ store.content().ui['pinballHelp'] }}</span>
           <button type="button" class="pb-exit" (click)="closePinball()" [attr.aria-label]="store.content().ui['pinballClose']">X</button>
         </div>
-        <iframe #frame class="pb-frame" [src]="pinballUrl" title="3D Pinball: Space Cadet" allow="autoplay; fullscreen" [style.width.px]="pinballSize().w" [style.height.px]="pinballSize().h"></iframe>
+        <div class="pb-stage" [style.width.px]="pinballSize().w * pinballScale()" [style.height.px]="pinballSize().h * pinballScale()">
+          <iframe #frame class="pb-frame" [src]="pinballUrl" title="3D Pinball: Space Cadet" allow="autoplay; fullscreen" [style.width.px]="pinballSize().w" [style.height.px]="pinballSize().h" [style.transform]="'scale(' + pinballScale() + ')'"></iframe>
+        </div>
+        @if (touchDevice) {
+          <div class="pb-touch" (contextmenu)="$event.preventDefault()">
+            <button type="button" (pointerdown)="pinballKey(frame, 'left', true)" (pointerup)="pinballKey(frame, 'left', false)" (pointercancel)="pinballKey(frame, 'left', false)" (pointerleave)="pinballKey(frame, 'left', false)" aria-label="Z">◀</button>
+            <button type="button" class="launch" (pointerdown)="pinballKey(frame, 'launch', true)" (pointerup)="pinballKey(frame, 'launch', false)" (pointercancel)="pinballKey(frame, 'launch', false)" (pointerleave)="pinballKey(frame, 'launch', false)" aria-label="Space">{{ store.content().ui['pinballLaunch'] }}</button>
+            <button type="button" (pointerdown)="pinballKey(frame, 'right', true)" (pointerup)="pinballKey(frame, 'right', false)" (pointercancel)="pinballKey(frame, 'right', false)" (pointerleave)="pinballKey(frame, 'right', false)" aria-label="/">▶</button>
+          </div>
+        }
       </section>
     </div>
   }
@@ -353,6 +362,21 @@
         </article>
       }
 
+      @if (store.projectIndex() !== null) {
+        @let cur = store.content().projects[store.projectIndex()!];
+        <nav class="project-switch" [attr.aria-label]="store.content().ui['selectProject']">
+          <button type="button" class="ps-arrow" (click)="step(-1)" [attr.aria-label]="store.content().ui['prev']">‹</button>
+          <div class="ps-center">
+            <strong class="ps-title">{{ cur.title }}</strong>
+            <div class="ps-dots">
+              @for (p of store.content().projects; track $index) {
+                <button type="button" class="ps-dot" [class.on]="$index === store.projectIndex()" (click)="exp?.openProject($index)" [attr.aria-label]="p.title" [attr.aria-current]="$index === store.projectIndex() ? 'true' : null">{{ $index + 1 }}</button>
+              }
+            </div>
+          </div>
+          <button type="button" class="ps-arrow" (click)="step(1)" [attr.aria-label]="store.content().ui['next']">›</button>
+        </nav>
+      }
       @if (store.projectIndex() === null) {
         <div class="project-bar collection">
           <p>{{ store.content().ui['selectProject'] }}</p>

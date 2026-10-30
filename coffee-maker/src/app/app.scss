@@ -2500,3 +2500,176 @@ a.primary,
     max-height: calc(100dvh - 72px - 8.5rem);
   }
 }
+
+/* Pinball: marco escalado para que quepa entero y botones táctiles (en móvil no hay teclado) */
+.pb-stage {
+  position: relative;
+  overflow: hidden;
+  .pb-frame {
+    position: absolute;
+    left: 0;
+    top: 0;
+    max-width: none;
+    max-height: none;
+    transform-origin: 0 0;
+  }
+}
+
+.pb-touch {
+  display: flex;
+  gap: 0.6rem;
+  button {
+    flex: 1;
+    min-height: 4.2rem;
+    font-family: var(--pixel);
+    font-size: 1.1rem;
+    color: #0a0720;
+    background: var(--teal);
+    border: 3px solid #0a0720;
+    border-radius: 14px;
+    box-shadow: 0 0 14px rgba(93, 242, 255, 0.55);
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    &:active {
+      background: var(--amber);
+      transform: scale(0.96);
+    }
+  }
+  .launch {
+    flex: 1.3;
+    font-size: 0.7rem;
+    background: var(--pink, #ff3ea5);
+    color: #fff;
+  }
+}
+
+/* Selector fijo para cambiar de proyecto: flechas, título actual y un botón por proyecto */
+.project-switch {
+  position: fixed;
+  z-index: 6;
+  left: 50%;
+  bottom: 70px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: calc(100vw - 24px);
+  padding: 0.45rem 0.6rem;
+  background: var(--panel);
+  border: 2px solid var(--teal);
+  border-radius: 999px;
+  box-shadow: 0 0 18px rgba(93, 242, 255, 0.35);
+  backdrop-filter: blur(8px);
+
+  .ps-arrow {
+    flex: none;
+    width: 46px;
+    height: 46px;
+    display: grid;
+    place-items: center;
+    font-size: 1.7rem;
+    line-height: 1;
+    font-weight: 700;
+    color: #0a0720;
+    background: var(--teal);
+    border: 0;
+    border-radius: 50%;
+    cursor: pointer;
+    touch-action: manipulation;
+    &:hover,
+    &:active {
+      background: var(--amber);
+    }
+  }
+  .ps-center {
+    display: grid;
+    justify-items: center;
+    gap: 0.3rem;
+    min-width: 0;
+  }
+  .ps-title {
+    max-width: 52vw;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-family: var(--pixel);
+    font-size: 0.55rem;
+    color: var(--text);
+  }
+  .ps-dots {
+    display: flex;
+    gap: 0.35rem;
+  }
+  .ps-dot {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    font-family: var(--pixel);
+    font-size: 0.55rem;
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.08);
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    border-radius: 8px;
+    cursor: pointer;
+    touch-action: manipulation;
+    &.on {
+      color: #0a0720;
+      background: var(--amber);
+      border-color: var(--amber);
+    }
+  }
+}
+
+/* Móvil: dentro de una sección se oculta la barra de abajo (queda el botón de volver) y los controles bajan al borde */
+@media (max-width: 640px), (pointer: coarse) {
+  .dock.in-section {
+    display: none;
+  }
+  .dock.in-section ~ .tabs,
+  .dock.in-section ~ .project-bar,
+  .dock.in-section ~ .project-switch,
+  .dock.in-section ~ .player {
+    bottom: 14px;
+  }
+  .dock.in-section ~ .menu-card {
+    bottom: 14px;
+    max-height: calc(100dvh - 14px - 8.5rem);
+  }
+}
+
+/* Móvil: pestañas de "Sobre mí" compactas (dos filas), tarjeta sin tapar los botones y sin scroll horizontal */
+@media (max-width: 640px) {
+  .tabs {
+    gap: 0.35rem;
+    button {
+      font-size: 0.56rem;
+      padding: 0.45rem 0.55rem;
+      box-shadow: 2px 2px 0 rgba(93, 242, 255, 0.35);
+    }
+  }
+  .about-card {
+    overflow-x: hidden;
+    .ab-facts {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.6rem 0.8rem;
+      li {
+        min-width: 0;
+      }
+      b {
+        font-size: 1.05rem;
+        overflow-wrap: anywhere;
+      }
+      span {
+        font-size: 0.65rem;
+        letter-spacing: 0.04em;
+      }
+    }
+  }
+  .dock.in-section ~ .about-card {
+    bottom: 92px;
+    max-height: calc(100dvh - 92px - 7.5rem);
+  }
+}

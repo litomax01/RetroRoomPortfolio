@@ -64,6 +64,16 @@ export class App implements AfterViewInit, OnDestroy {
   protected readonly titleChars = computed(() => [...this.store.content().siteName]);
   protected readonly pinballSize = signal({ w: 600, h: 440 });
   protected readonly pinballVolume = signal(readPinballVolume());
+  /** Tamaño de la ventana, para escalar el pinball y que quepa entero en móvil. */
+  private readonly viewport = signal({ w: window.innerWidth, h: window.innerHeight });
+  protected readonly touchDevice = window.matchMedia('(pointer: coarse)').matches;
+  /** Escala del marco: 1 en escritorio; en móvil se reduce para que se vea el juego completo (y queden los botones). */
+  protected readonly pinballScale = computed(() => {
+    const { w, h } = this.pinballSize();
+    const v = this.viewport();
+    const reserved = this.touchDevice ? 190 : 100;
+    return Math.min(1, (v.w * 0.96) / w, Math.max(120, v.h - reserved) / h);
+  });
 
   /** Pac-Man (Flash) corre en el emulador Ruffle, servido desde nuestros propios archivos (mismo origen). */
   protected readonly arcadeUrl = inject(DomSanitizer).bypassSecurityTrustResourceUrl('arcade/index.html');
@@ -152,6 +162,29 @@ export class App implements AfterViewInit, OnDestroy {
       /* ignorar */
     }
     frame.contentWindow?.postMessage({ type: 'pinball-volume', v }, location.origin);
+  }
+
+  @HostListener('window:resize')
+  protected onResize(): void {
+    this.viewport.set({ w: window.innerWidth, h: window.innerHeight });
+  }
+
+  /** Manda una tecla al pinball (que solo entiende teclado) desde los botones táctiles. */
+  protected pinballKey(frame: HTMLIFrameElement, which: 'left' | 'right' | 'launch', down: boolean): void {
+    const keys = {
+      left: { key: 'z', code: 'KeyZ', keyCode: 90 },
+      right: { key: '/', code: 'Slash', keyCode: 191 },
+      launch: { key: ' ', code: 'Space', keyCode: 32 },
+    };
+    const doc = frame.contentDocument;
+    const win = frame.contentWindow as (Window & { KeyboardEvent: typeof KeyboardEvent }) | null;
+    if (!doc || !win) return;
+    const k = keys[which];
+    const ev = new win.KeyboardEvent(down ? 'keydown' : 'keyup', { key: k.key, code: k.code, bubbles: true, cancelable: true });
+    // Algunos navegadores ignoran keyCode/which en el constructor: se fijan a mano
+    Object.defineProperty(ev, 'keyCode', { get: () => k.keyCode });
+    Object.defineProperty(ev, 'which', { get: () => k.keyCode });
+    doc.dispatchEvent(ev);
   }
 
   @HostListener('window:message', ['$event'])
