@@ -126,7 +126,7 @@ export function buildRoom(): RoomParts {
   };
   const chrome = std('#9aa8d8', { metalness: 0.85, roughness: 0.3 });
   const woodDark = std('#2a1810', { roughness: 0.5 });
-  woodDark.userData['tint'] = '#9a8478';
+  woodDark.userData['tint'] = '#8470b8';
   pbr.wood.push(woodDark);
 
   const hitbox = (size: [number, number, number], pos: [number, number, number], action: Action) => {
@@ -138,28 +138,31 @@ export function buildRoom(): RoomParts {
   };
 
   // ---- Luz: ambiente morada y puntos cálidos y de neón ----
-  root.add(new THREE.HemisphereLight('#8a80d8', '#150f28', 0.75));
-  const addLight = (color: string, intensity: number, dist: number, x: number, y: number, z: number) => {
+  root.add(new THREE.HemisphereLight('#5a4cc0', '#120a2a', 0.8));
+  // En táctil se omiten las luces de acento (`optional`): cada luz se calcula por píxel en todos los materiales
+  const lowEnd = window.matchMedia('(pointer: coarse)').matches;
+  const addLight = (color: string, intensity: number, dist: number, x: number, y: number, z: number, optional = false) => {
     const l = new THREE.PointLight(color, intensity, dist, 1.5);
+    if (optional && lowEnd) return l;
     l.position.set(x, y, z);
     root.add(l);
     return l;
   };
-  addLight(C.warm, 24, 16, -1.4, 5.6, 1.5);
-  addLight('#6aa8ff', 9, 9, -1.4, 3.1, -4.2);
-  addLight('#4aa8ff', 7, 7, -6.6, 5.1, -4.9);
-  addLight('#ff4a3a', 6, 6, -6.6, 4.2, -4.9);
-  addLight('#3aff7a', 5, 6, -6.6, 3.3, -4.9);
-  addLight(C.magenta, 9, 9, 5.2, 2.6, -4.2);
-  addLight(C.cyan, 7, 8, 3.2, 2.2, -4.4);
-  addLight('#ffcf8a', 14, 10, -3.9, 4.4, 5.0);
-  addLight('#ffb070', 10, 12, 4.4, 4.8, 5.0);
+  addLight(C.warm, 30, 14, -1.4, 5.6, 1.5);
+  addLight(C.magenta, 9, 9, 5.2, 2.6, -4.2, true);
+  addLight(C.cyan, 7, 8, 3.2, 2.2, -4.4, true);
+  addLight('#ffcf8a', 16, 9, -3.9, 4.4, 5.0);
+  addLight('#ffb070', 12, 10, 4.4, 4.8, 5.0);
+  // Juego de color por zonas: turquesa a la izquierda, magenta a la derecha, índigo al fondo
+  const washTeal = addLight('#19e6d2', 14, 9, -7.2, 3.4, 0.5);
+  const washMagenta = addLight('#ff2fa8', 14, 9, 7.2, 3.4, 0.5);
+  const washIndigo = addLight('#5b3bff', 10, 9, 0.5, 4.6, -4.6);
   const lightRecord = addLight('#ff6ad5', 7, 9, 5.0, 1.9, 3.7);
 
   // ---- Piso de madera y alfombras ----
   const floorMat = std('#6a5646', { roughness: 0.55, metalness: 0.05 });
-  floorMat.userData['tint'] = '#ffffff';
-  floorMat.userData['gain'] = 1.7;
+  floorMat.userData['tint'] = '#c4b2ea';
+  floorMat.userData['gain'] = 1.25;
   pbr.floor.push(floorMat);
   const floor = mesh(new THREE.PlaneGeometry(16, 15), floorMat, [0, 0, 1.5], root);
   floor.rotation.x = -Math.PI / 2;
@@ -282,7 +285,7 @@ export function buildRoom(): RoomParts {
   root.add(maskGroup);
   mesh(box(0.08, 2.5, 2.7), std('#120d22', { roughness: 0.6, metalness: 0.25 }), [-7.93, 3.55, 0.5], root);
   mesh(box(0.05, 2.62, 2.82), std('#ffd84d', { roughness: 0.4, metalness: 0.6 }), [-7.96, 3.55, 0.5], root);
-  addLight('#b86bff', 9, 7, -6.2, 3.6, 0.5);
+  addLight('#b86bff', 9, 7, -6.2, 3.6, 0.5, true);
   hitbox([1.4, 2.4, 2.6], [-7.45, 3.55, 0.5], 'mask');
 
   void document.fonts?.load('80px "Pacifico"').then(() => neonPanels.forEach(([p, t, c]) => p.redraw((g, w, h) => drawNeonWord(g, w, h, t, c))));
@@ -634,7 +637,7 @@ export function buildRoom(): RoomParts {
     mask: maskGroup,
     chessTable: table,
     eva,
-    accent: [lightRecord],
+    accent: [lightRecord, washTeal, washMagenta, washIndigo],
     bartender: {
       root: bt,
       body,

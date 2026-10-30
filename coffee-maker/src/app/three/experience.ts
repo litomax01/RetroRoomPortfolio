@@ -55,7 +55,10 @@ const GradeShader = {
       vec3 col = c.rgb;
       // contraste suave y tinte cálido en sombras
       col = mix(col, col*col*(3.0-2.0*col), 0.35);
-      col *= vec3(0.98, 1.0, 1.02);
+      // reparto de color: sombras frías turquesa-índigo, luces cálidas, un poco más de saturación
+      float l = dot(col, vec3(0.299, 0.587, 0.114));
+      col = mix(col * vec3(0.82, 0.92, 1.22), col * vec3(1.12, 1.0, 0.9), smoothstep(0.12, 0.65, l));
+      col = mix(vec3(l), col, 1.18);
       // viñeta
       vec2 d = vUv - 0.5;
       float v = smoothstep(0.85, 0.25, length(d * vec2(1.15, 1.0)));
@@ -208,6 +211,15 @@ export class Experience {
   private bloomEnabled = true;
   private frameNo = 0;
   private perfLevel = 0;
+  private perfChecks = 0;
+  /** Pantalla táctil: se recortan efectos que solo se aprecian en escritorio. */
+  private readonly touch = window.matchMedia('(pointer: coarse)').matches;
+  /** Vectores reutilizados por fotograma (evitan basura y tirones del GC). */
+  private readonly sOff = new THREE.Vector3();
+  private readonly sSide = new THREE.Vector3();
+  private readonly sTarget = new THREE.Vector3();
+  private lastDraw = 0;
+  private lastPick = 0;
   private armTarget = 0.5;
   private currentMode: Mode = 'menu';
   private readonly onResize = () => this.resize();
@@ -270,16 +282,16 @@ export class Experience {
       powerPreference: 'high-performance',
     });
     const coarse = window.matchMedia('(pointer: coarse)').matches;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, coarse ? 1.25 : 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 0.98;
+    this.renderer.toneMappingExposure = 1.08;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.shadowMap.autoUpdate = false; // se refresca a mitad de cadencia en el bucle
 
-    this.scene.background = new THREE.Color('#0a0720');
-    this.scene.fog = new THREE.Fog('#0a0720', 22, 44);
+    this.scene.background = new THREE.Color('#140d34');
+    this.scene.fog = new THREE.Fog('#140d34', 24, 48);
     this.pmrem = new THREE.PMREMGenerator(this.renderer);
     this.scene.environment = this.pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     this.scene.environmentIntensity = 0.35;
@@ -376,17 +388,31 @@ export class Experience {
           img.src = 'img/portrait.jpg';
         }),
     ];
-    for (let i = 0; i < steps.length; i++) {
-      try {
-        await steps[i]();
-      } catch {
-        /* una fuente que falla no debe bloquear la escena */
+    // Descargas en paralelo (4 a la vez); el 100 % solo se muestra cuando la escena ya está lista
+    let next = 0;
+    let done = 0;
+    const worker = async () => {
+      while (next < steps.length) {
+        const step = steps[next++];
+        try {
+          await step();
+        } catch {
+          /* una fuente que falla no debe bloquear la escena */
+        }
+        this.store.progress.set(Math.min(90, Math.round((++done / steps.length) * 90)));
       }
-      this.store.progress.set(Math.round(((i + 1) / steps.length) * 100));
+    };
+    await Promise.all(Array.from({ length: 4 }, worker));
+    this.sync();
+    // Compilar shaders ahora evita el congelamiento al primer fotograma
+    try {
+      await this.renderer.compileAsync(this.scene, this.camera);
+    } catch {
+      /* si falla, se compilan al vuelo en el primer render */
     }
+    this.store.progress.set(100);
     const wait = Math.max(0, 900 - (performance.now() - started));
     await new Promise((r) => setTimeout(r, wait));
-    this.sync();
     this.start();
     this.store.ready.set(true);
   }
@@ -616,7 +642,7 @@ export class Experience {
       const tex = new THREE.CanvasTexture(canvas);
       tex.flipY = false;
       tex.colorSpace = THREE.SRGBColorSpace;
-      tex.anisotropy = 8;
+      tex.anisotropy = this.touch ? 2 : 8;
       tex.wrapS = mat.emissiveMap.wrapS;
       tex.wrapT = mat.emissiveMap.wrapT;
       mat.emissiveMap = tex;
@@ -1024,7 +1050,7 @@ export class Experience {
             .then((t) => {
               t.wrapS = t.wrapT = THREE.RepeatWrapping;
               t.repeat.set(rep[0], rep[1]);
-              t.anisotropy = 8;
+              t.anisotropy = this.touch ? 2 : 8;
               if (srgb) t.colorSpace = THREE.SRGBColorSpace;
               return t;
             })
@@ -1068,7 +1094,7 @@ export class Experience {
       hdr.mapping = THREE.EquirectangularReflectionMapping;
       const env = this.pmrem.fromEquirectangular(hdr).texture;
       this.scene.environment = env;
-      this.scene.environmentIntensity = 0.26;
+      this.scene.environmentIntensity = 0.35;
       hdr.dispose();
     } catch {
       /* se queda el entorno por defecto */
@@ -1077,12 +1103,13 @@ export class Experience {
 
   /** Dos focos con sombra desde el techo; todos los objetos proyectan y reciben. */
   private setupShadows(): void {
-    const spot = (x: number, z: number, tx: number, tz: number) => {
-      const l = new THREE.SpotLight('#ffd7a0', 38, 0, Math.PI / 2.6, 0.7, 1.4);
+    const spot = (x: number, z: number, tx: number, tz: number, second = false) => {
+      const l = new THREE.SpotLight('#ffd7a0', 46, 0, Math.PI / 2.6, 0.7, 1.4);
       l.position.set(x, 6.5, z);
       l.target.position.set(tx, 0, tz);
-      l.castShadow = true;
-      l.shadow.mapSize.set(1024, 1024);
+      l.castShadow = !this.touch || !second; // en táctil solo el foco principal proyecta sombra
+      const size = this.touch ? 512 : 1024;
+      l.shadow.mapSize.set(size, size);
       l.shadow.bias = -0.0004;
       l.shadow.normalBias = 0.03;
       l.shadow.camera.near = 1;
@@ -1090,7 +1117,7 @@ export class Experience {
       this.room.root.add(l, l.target);
     };
     spot(-1, 2.5, -1, 0);
-    spot(4.5, 0.5, 4.8, -0.5);
+    spot(4.5, 0.5, 4.8, -0.5, true);
     this.room.root.traverse((o) => {
       const m = o as THREE.Mesh;
       if (!m.isMesh) return;
@@ -1172,7 +1199,7 @@ export class Experience {
     if (key === this.outlineKey) return;
     this.outlineKey = key;
     this.outline.selectedObjects = targets;
-    this.outline.enabled = targets.length > 0;
+    this.outline.enabled = !this.touch && targets.length > 0;
   }
 
   /** Resalta desde la interfaz (dock y lista de juegos) el objeto 3D correspondiente. */
@@ -1195,7 +1222,7 @@ export class Experience {
     if (k === this.outlineKey) return;
     this.outlineKey = k;
     this.outline.selectedObjects = targets;
-    this.outline.enabled = targets.length > 0;
+    this.outline.enabled = !this.touch && targets.length > 0;
   }
 
   /** Abre un juego desde la lista del dock. */
@@ -1563,6 +1590,14 @@ export class Experience {
   enter(): void {
     this.ensureAudio();
     this.store.started.set(true);
+    // Música de bienvenida: el clic en PRESS START ya desbloqueó el audio
+    if (this.music.index < 0 && !this.changing) {
+      const i = this.store.trackIndex();
+      this.room.setLabel(i, TRACKS[i].color);
+      this.music.load(i);
+      this.armTarget = -0.28;
+      void this.music.play();
+    }
     this.sounds.whoosh();
     window.setTimeout(() => this.sounds.ding(), 400);
     this.store.helpVisible.set(true);
@@ -1650,6 +1685,10 @@ export class Experience {
     }
     const rect = this.canvas.getBoundingClientRect();
     this.parallax.set(((e.clientX - rect.left) / rect.width) * 2 - 1, ((e.clientY - rect.top) / rect.height) * 2 - 1);
+    // El raycast no necesita correr a la frecuencia del ratón (500-1000 Hz): ~30 por segundo basta
+    const stamp = performance.now();
+    if (stamp - this.lastPick < 33) return;
+    this.lastPick = stamp;
     const hit = this.dragging ? null : this.pick(e);
     this.canvas.style.cursor = hit ? 'pointer' : 'default';
     this.setHover(hit ? hit.object : null, hit ? hit.action : null, hit?.index);
@@ -1732,11 +1771,16 @@ export class Experience {
     const tick = () => {
       this.rafId = requestAnimationFrame(tick);
       if (document.hidden) return;
+      // Máximo ~60 fps estables: en monitores de 120/144 Hz evita fotogramas irregulares y gasto de GPU
+      const now = performance.now();
+      const gap = now - this.lastDraw;
+      if (gap < 14.5) return;
+      this.lastDraw = gap > 50 ? now : now - (gap % 16.667);
       const dt = Math.min(this.clock.getDelta(), 0.1);
       // Con el Super Nintendo o el arcade abiertos la escena se congela: los emuladores necesitan la GPU y la CPU
       if (this.store.snesOpen() || this.store.arcadeOpen()) return;
       this.update(dt);
-      this.renderer.shadowMap.needsUpdate = (this.frameNo++ & 1) === 0;
+      this.renderer.shadowMap.needsUpdate = (this.frameNo++ & (this.touch ? 3 : 1)) === 0;
       this.composer.render();
     };
     this.rafId = requestAnimationFrame(tick);
@@ -1749,7 +1793,8 @@ export class Experience {
     this.perfTimer += dt;
     if (this.perfTimer > 3) {
       this.perfTimer = 0;
-      this.degradeIfSlow();
+      // Los primeros segundos van lentos por la carga de modelos: no cuentan
+      if (++this.perfChecks > 3) this.degradeIfSlow();
     }
 
     if (!reduce) {
@@ -1770,12 +1815,12 @@ export class Experience {
     // Mirada con un poco de paralaje
     const px = reduce ? 0 : this.parallax.x * 0.35;
     const py = reduce ? 0 : this.parallax.y * 0.15;
-    const off = this.basePos.clone().sub(this.look).multiplyScalar(this.orbit.zoom);
+    const off = this.sOff.copy(this.basePos).sub(this.look).multiplyScalar(this.orbit.zoom);
     off.applyAxisAngle(UP, this.orbit.az);
-    const side = new THREE.Vector3().crossVectors(UP, off).normalize();
+    const side = this.sSide.crossVectors(UP, off).normalize();
     off.applyAxisAngle(side, this.orbit.el);
     this.camera.position.copy(this.look).add(off);
-    const target = this.look.clone();
+    const target = this.sTarget.copy(this.look);
     target.x += px;
     target.y -= py;
     if (!reduce) target.y += Math.sin(t * 0.5) * 0.04;
@@ -1994,6 +2039,12 @@ export class Experience {
     }
     const [rec] = this.room.accent;
     if (!this.changing) rec.intensity = 6 + L.bass * 10;
+    // Las luces de color respiran despacio y a distinto ritmo, para que la sala cambie de tono
+    const [, teal, magenta, indigo] = this.room.accent;
+    const sway = reduce ? 0 : 1;
+    teal.intensity = 14 + sway * Math.sin(t * 0.45) * 6 + L.mid * 8;
+    magenta.intensity = 14 + sway * Math.sin(t * 0.37 + 2) * 6 + L.bass * 8;
+    indigo.intensity = 10 + sway * Math.sin(t * 0.29 + 4) * 4;
     const wave = 1 + (reduce ? 0 : Math.sin(t * 2.2) * 0.12) + L.bass * 0.35;
     for (const m of this.room.glowMaterials) {
       const base = m.userData['pulse'] as number | undefined;
@@ -2028,8 +2079,8 @@ export class Experience {
     // Escalera de calidad: cada comprobación lenta baja un peldaño, nunca sube
     switch (this.perfLevel++) {
       case 0:
-        if (this.renderer.getPixelRatio() > 1) {
-          this.renderer.setPixelRatio(1);
+        if (this.renderer.getPixelRatio() > 1.25) {
+          this.renderer.setPixelRatio(1.25);
           this.resize();
         }
         break;
@@ -2062,7 +2113,7 @@ export class Experience {
     this.renderer.setSize(w, h, false);
     this.composer.setSize(w, h);
     this.composer.setPixelRatio(this.renderer.getPixelRatio());
-    this.bloom.setSize(w, h);
+    this.bloom.setSize(this.touch ? w / 2 : w, this.touch ? h / 2 : h);
     this.gtao.setSize(w * 0.6, h * 0.6); // el AO a resolución reducida apenas se nota y cuesta mucho menos
     if (!this.locked && !this.store.focused()) this.basePos.copy(this.fitPosition(VIEWS[this.currentMode]));
   }

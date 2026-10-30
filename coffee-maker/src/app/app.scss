@@ -2482,3 +2482,21 @@ a.primary,
 @media (max-width: 640px) {
   .about-card .sk-main { grid-template-columns: 1fr; }
 }
+
+/* El botón de volver siempre por encima de tarjetas y carteles (en móvil la carta de contacto lo tapaba) */
+.back {
+  z-index: 40;
+}
+
+/* La carta nunca crece hasta el botón de volver: si no cabe, se desplaza por dentro */
+.menu-card {
+  max-height: calc(100dvh - 14rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 640px) {
+  .menu-card {
+    max-height: calc(100dvh - 72px - 8.5rem);
+  }
+}
