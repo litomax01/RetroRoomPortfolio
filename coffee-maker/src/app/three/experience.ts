@@ -222,6 +222,11 @@ export class Experience {
   private frameNo = 0;
   private perfLevel = 0;
   private perfChecks = 0;
+  /** Resolución dinámica: baja sola si faltan FPS y vuelve a subir cuando sobra margen. */
+  private dprMax = 1;
+  private dprMin = 1;
+  private goodChecks = 0;
+  private lastDrop = 0;
   /** Cuánto ha derivado la sala hacia los colores de la canción (0 = colores base, 1 = paleta de la canción). */
   private tintK = 0;
   /** Pulso del ritmo: destellos que se apagan rápido, alternando izquierda (A) y derecha (B). */
@@ -308,7 +313,12 @@ export class Experience {
       powerPreference: 'high-performance',
     });
     const coarse = window.matchMedia('(pointer: coarse)').matches;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, coarse ? 1.25 : 2));
+    // Equipos modestos (pocos nucleos o poca RAM) arrancan en una resolucion segura; el resto, a tope
+    const nav = navigator as Navigator & { deviceMemory?: number };
+    const weak = (nav.hardwareConcurrency ?? 8) <= 4 || (nav.deviceMemory ?? 8) <= 4;
+    this.dprMax = Math.min(window.devicePixelRatio, coarse ? 1.25 : 2);
+    this.dprMin = Math.min(this.dprMax, coarse ? 0.85 : 1);
+    this.renderer.setPixelRatio(weak ? Math.max(this.dprMin, Math.min(this.dprMax, 1)) : this.dprMax);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.08;
@@ -333,7 +343,7 @@ export class Experience {
     this.gtao.blendIntensity = 0.9;
     this.gtao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.4, thickness: 1.2, scale: 1.1, samples: 12 });
     this.composer.addPass(this.gtao);
-    if (coarse) this.gtao.enabled = false; // en táctil se parte de calidad reducida
+    if (coarse || weak) this.gtao.enabled = false; // en táctil o equipos modestos se parte sin oclusión ambiental
     this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.35, 0.5, 1.0);
     this.composer.addPass(this.bloom);
     // Contorno luminoso del objeto señalado (sustituye a la luz general del hover)
@@ -449,6 +459,7 @@ export class Experience {
 
   /** Props secundarios: se descargan de a uno cuando la escena ya es interactiva. */
   private async loadDeferred(steps: Array<() => Promise<unknown>>): Promise<void> {
+    this.perfChecks = -100; // mientras bajan props secundarios, los FPS no cuentan
     for (const step of steps) {
       try {
         await step();
@@ -458,6 +469,7 @@ export class Experience {
         /* un prop que falla no rompe la escena */
       }
     }
+    this.perfChecks = 0;
   }
 
   /**
@@ -1830,7 +1842,7 @@ export class Experience {
       // Con el Super Nintendo o el arcade abiertos la escena se congela: los emuladores necesitan la GPU y la CPU
       if (this.store.snesOpen() || this.store.arcadeOpen()) return;
       this.update(dt);
-      this.renderer.shadowMap.needsUpdate = (this.frameNo++ & (this.touch ? 3 : 1)) === 0;
+      this.renderer.shadowMap.needsUpdate = (this.frameNo++ & (this.touch ? 7 : 3)) === 0;
       this.composer.render();
     };
     this.rafId = requestAnimationFrame(tick);
@@ -1841,10 +1853,10 @@ export class Experience {
     const reduce = this.store.reducedMotion();
     this.frameMs += (dt * 1000 - this.frameMs) / 5;
     this.perfTimer += dt;
-    if (this.perfTimer > 3) {
+    if (this.perfTimer > 1.2) {
       this.perfTimer = 0;
       // Los primeros segundos van lentos por la carga de modelos: no cuentan
-      if (++this.perfChecks > 3) this.degradeIfSlow();
+      if (++this.perfChecks > 2) this.adaptQuality();
     }
 
     if (!reduce) {
@@ -2160,21 +2172,37 @@ export class Experience {
     pos.needsUpdate = true;
   }
 
-  private degradeIfSlow(): void {
+  private setDpr(v: number): void {
+    this.renderer.setPixelRatio(v);
+    this.resize();
+  }
+
+  /** Primero ajusta la resolucion (casi imperceptible); solo si no basta, apaga efectos. */
+  private adaptQuality(): void {
     const fps = 1000 / this.frameMs;
-    if (fps > 40) return;
+    const dpr = this.renderer.getPixelRatio();
+    const now = performance.now();
+    if (fps < 45) {
+      this.goodChecks = 0;
+      this.lastDrop = now;
+      if (dpr > this.dprMin + 0.01) this.setDpr(Math.max(this.dprMin, +(dpr * 0.85).toFixed(2)));
+      else this.degradeIfSlow();
+    } else if (fps >= 57 && dpr < this.dprMax - 0.01 && now - this.lastDrop > 12000) {
+      // Sobra margen de forma sostenida: recupera nitidez poco a poco
+      if (++this.goodChecks >= 6) {
+        this.goodChecks = 0;
+        this.setDpr(Math.min(this.dprMax, +(dpr * 1.1).toFixed(2)));
+      }
+    } else this.goodChecks = 0;
+  }
+
+  private degradeIfSlow(): void {
     // Escalera de calidad: cada comprobación lenta baja un peldaño, nunca sube
     switch (this.perfLevel++) {
       case 0:
-        if (this.renderer.getPixelRatio() > 1.25) {
-          this.renderer.setPixelRatio(1.25);
-          this.resize();
-        }
-        break;
-      case 1:
         this.gtao.enabled = false;
         break;
-      case 2:
+      case 1:
         this.outline.edgeThickness = 1.5;
         this.renderer.shadowMap.type = THREE.PCFShadowMap;
         this.scene.traverse((o) => {
@@ -2182,6 +2210,7 @@ export class Experience {
           if (l.isSpotLight) l.shadow.mapSize.set(512, 512), l.shadow.map?.dispose(), (l.shadow.map = null);
         });
         break;
+      case 2:
       default:
         if (this.bloomEnabled) {
           this.bloomEnabled = false;
