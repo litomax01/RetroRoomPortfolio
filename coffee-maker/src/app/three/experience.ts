@@ -460,10 +460,32 @@ export class Experience {
   /** Props secundarios: se descargan de a uno cuando la escena ya es interactiva. */
   private async loadDeferred(steps: Array<() => Promise<unknown>>): Promise<void> {
     this.perfChecks = -100; // mientras bajan props secundarios, los FPS no cuentan
+    const seen = new WeakSet<THREE.Texture>();
+    const frame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
     for (const step of steps) {
       try {
+        // Un respiro entre props: la carga nunca compite con la animacion
+        await new Promise((r) => setTimeout(r, 350));
         await step();
         this.sync();
+        // Las texturas nuevas se suben a la GPU de a una por fotograma, no todas de golpe en el primer render
+        const fresh: THREE.Texture[] = [];
+        this.scene.traverse((o) => {
+          const mat = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+          for (const m of Array.isArray(mat) ? mat : mat ? [mat] : []) {
+            for (const v of Object.values(m)) {
+              const t = v as THREE.Texture;
+              if (t && t.isTexture && !seen.has(t)) {
+                seen.add(t);
+                fresh.push(t);
+              }
+            }
+          }
+        });
+        for (const t of fresh) {
+          this.renderer.initTexture(t);
+          await frame();
+        }
         await this.renderer.compileAsync(this.scene, this.camera);
       } catch {
         /* un prop que falla no rompe la escena */
@@ -1851,7 +1873,7 @@ export class Experience {
       // Con el Super Nintendo o el arcade abiertos la escena se congela: los emuladores necesitan la GPU y la CPU
       if (this.store.snesOpen() || this.store.arcadeOpen()) return;
       this.update(dt);
-      this.renderer.shadowMap.needsUpdate = (this.frameNo++ & (this.touch ? 7 : 3)) === 0;
+      this.renderer.shadowMap.needsUpdate = (this.frameNo++ & (this.touch ? 3 : 1)) === 0;
       this.composer.render();
     };
     this.rafId = requestAnimationFrame(tick);
