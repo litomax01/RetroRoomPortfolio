@@ -231,6 +231,9 @@ export class Experience {
   /** Cuánto ha derivado la sala hacia los colores de la canción (0 = colores base, 1 = paleta de la canción). */
   private tintK = 0;
   /** Pulso del ritmo: destellos que se apagan rápido, alternando izquierda (A) y derecha (B). */
+  private smBass = 0;
+  private smMid = 0;
+  private smHigh = 0;
   private beatA = 0;
   private beatB = 0;
   private beatCount = 0;
@@ -2127,12 +2130,17 @@ export class Experience {
     this.fluxAvg += (flux - this.fluxAvg) * Math.min(1, dt * 2);
     if (playing && flux > this.fluxAvg * 1.5 && flux > 0.04 && t - this.lastBeat > 0.2) {
       this.lastBeat = t;
-      if ((this.beatCount++ & 1) === 0) this.beatA = 1;
-      else this.beatB = 1;
+      if ((this.beatCount++ & 1) === 0) this.beatA = 0.6;
+      else this.beatB = 0.6;
     }
-    const decay = Math.exp(-dt * 5);
+    // Los golpes se apagan despacio y las energias se suavizan: sin estroboscopio
+    const decay = Math.exp(-dt * 3);
     this.beatA *= decay;
     this.beatB *= decay;
+    const lp = Math.min(1, dt * 5);
+    this.smBass += (L.bass - this.smBass) * lp;
+    this.smMid += (L.mid - this.smMid) * lp;
+    this.smHigh += (L.high - this.smHigh) * lp;
     this.store.musicPlaying.set(playing);
     this.uiTimer += dt;
     if (this.uiTimer > 0.25) {
@@ -2147,28 +2155,28 @@ export class Experience {
       const target = playing ? 0.12 + L.bars[i] * 1.15 : idle;
       b.scale.y += (target - b.scale.y) * Math.min(1, dt * 14);
     });
-    for (const g of this.jukeboxGlow) g.mat.emissiveIntensity = g.base * 0.28 * (playing ? 1 + L.bass * 0.8 : 0.85 + Math.sin(t * 1.6) * 0.1);
-    if (this.bloomEnabled) this.bloom.strength = this.bloomBase + L.bass * 0.2 + (this.beatA + this.beatB) * 0.15;
+    for (const g of this.jukeboxGlow) g.mat.emissiveIntensity = g.base * 0.28 * (playing ? 1 + this.smBass * 0.4 : 0.85 + Math.sin(t * 1.6) * 0.1);
+    if (this.bloomEnabled) this.bloom.strength = this.bloomBase + this.smBass * 0.08 + (this.beatA + this.beatB) * 0.05;
     this.grade.uniforms['time'].value = t % 100;
     // Marquesina: las bombillas del cartel parpadean alternadas
     const phase = Math.floor(t * (this.currentMode === 'about' ? 4 : 2)) % 2;
     for (const m of this.room.glowMaterials) {
       const mq = m.userData['marquee'] as number | undefined;
-      if (mq !== undefined) m.emissiveIntensity = mq === phase ? 3.4 : 0.8;
+      if (mq !== undefined) m.emissiveIntensity = THREE.MathUtils.lerp(m.emissiveIntensity, mq === phase ? 2.6 : 1.1, Math.min(1, dt * 6));
     }
     const [rec] = this.room.accent;
-    if (!this.changing) rec.intensity = 3.5 + L.bass * 5 + (this.beatA + this.beatB) * 3;
+    if (!this.changing) rec.intensity = 3.5 + this.smBass * 2.5 + (this.beatA + this.beatB) * 1;
     // Las luces de color respiran despacio y a distinto ritmo, para que la sala cambie de tono
     const [, teal, magenta, indigo] = this.room.accent;
     const sway = reduce ? 0 : 1;
-    teal.intensity = 14 + sway * Math.sin(t * 0.45) * 6 + L.mid * 8 + this.beatA * 24 * this.tintK;
-    magenta.intensity = 14 + sway * Math.sin(t * 0.37 + 2) * 6 + L.bass * 8 + this.beatB * 24 * this.tintK;
-    indigo.intensity = 10 + sway * Math.sin(t * 0.29 + 4) * 4 + (this.beatA + this.beatB) * 8 * this.tintK;
+    teal.intensity = 14 + sway * Math.sin(t * 0.45) * 6 + this.smMid * 3 + this.beatA * 8 * this.tintK;
+    magenta.intensity = 14 + sway * Math.sin(t * 0.37 + 2) * 6 + this.smBass * 3 + this.beatB * 8 * this.tintK;
+    indigo.intensity = 10 + sway * Math.sin(t * 0.29 + 4) * 4 + (this.beatA + this.beatB) * 3 * this.tintK;
     // Colores según la canción: al sonar, la sala deriva hacia su paleta y los graves empujan hacia el color secundario
     this.tintK += ((playing ? 1 : 0) - this.tintK) * Math.min(1, dt * 1.2);
     const [p0, p1] = TRACK_TINT[this.store.trackIndex() % TRACK_TINT.length];
     const k = this.tintK;
-    const live = this.tintLive.copy(p0).lerp(p1, Math.min(1, L.bass * 1.8));
+    const live = this.tintLive.copy(p0).lerp(p1, Math.min(1, this.smBass * 1.2));
     teal.color.copy(this.baseTeal).lerp(p0, k * 0.85);
     magenta.color.copy(this.baseMagenta).lerp(p1, k * 0.85);
     indigo.color.copy(this.baseIndigo).lerp(live, k * 0.6);
@@ -2177,16 +2185,16 @@ export class Experience {
     for (const tn of this.room.tintables) {
       tn.color.copy(tn.base).lerp(this.tintMix.copy(p0).lerp(p1, tn.mix), k * 0.9);
       // Izquierda y derecha se encienden alternadas al ritmo; el fondo sigue los agudos
-      const hit = tn.mix < 0.25 ? this.beatA : tn.mix > 0.75 ? this.beatB : L.high * 2;
-      tn.color.multiplyScalar(1 + k * (hit * 1.2 - 0.1));
+      const hit = tn.mix < 0.25 ? this.beatA : tn.mix > 0.75 ? this.beatB : this.smHigh * 1.2;
+      tn.color.multiplyScalar(1 + k * (hit * 0.4 - 0.05));
     }
     // Las luces de color barren la sala al compás: más rápido cuanta más energía hay
-    this.sweep += reduce ? 0 : dt * (0.5 + (L.bass + L.mid) * 2.2);
+    this.sweep += reduce ? 0 : dt * (0.5 + (this.smBass + this.smMid) * 1.2);
     const amp = reduce ? 0 : k;
-    teal.position.set(-7.2, 3.4 + this.beatA * 0.8 * amp, 0.5 + Math.sin(this.sweep) * 4.5 * amp);
-    magenta.position.set(7.2, 3.4 + this.beatB * 0.8 * amp, 0.5 + Math.sin(this.sweep + Math.PI) * 4.5 * amp);
+    teal.position.set(-7.2, 3.4 + this.beatA * 0.3 * amp, 0.5 + Math.sin(this.sweep) * 4.5 * amp);
+    magenta.position.set(7.2, 3.4 + this.beatB * 0.3 * amp, 0.5 + Math.sin(this.sweep + Math.PI) * 4.5 * amp);
     indigo.position.set(0.5 + Math.cos(this.sweep * 0.7) * 4 * amp, 4.6, -4.6 + (1 + Math.sin(this.sweep * 0.7)) * 3 * amp);
-    const wave = 1 + (reduce ? 0 : Math.sin(t * 2.2) * 0.12) + L.bass * 0.35;
+    const wave = 1 + (reduce ? 0 : Math.sin(t * 2.2) * 0.08) + this.smBass * 0.15;
     for (const m of this.room.glowMaterials) {
       const base = m.userData['pulse'] as number | undefined;
       if (base) m.emissiveIntensity = base * wave;
