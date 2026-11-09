@@ -660,9 +660,14 @@ export class Experience {
     if (isDevMode()) console.info('[host] altura cruda', box.max.y - box.min.y, 'huesos', Object.keys(bones));
 
     // Se ocultan los cubos del personaje anterior; la zona de clic y el brillo se conservan
-    b.legL.visible = false;
-    b.legR.visible = false;
-    b.body.visible = false;
+    // El personaje antiguo (cubos) ya no se usa: se retira de la escena y se libera su memoria
+    for (const old of [b.legL, b.legR, b.body]) {
+      old.removeFromParent();
+      old.traverse((o) => {
+        const m = o as THREE.Mesh;
+        if (m.isMesh) m.geometry.dispose();
+      });
+    }
     b.root.add(model);
 
     // El Game Boy ya no se carga (el contacto se muestra en la tarjeta); la mano de cubos se oculta junto con el cuerpo
@@ -1231,7 +1236,7 @@ export class Experience {
     });
     const n = this.room.vitrina.bottles.length || 1;
     // Foco unico: mezcla la media con la botella mas iluminada (la activa)
-    this.room.vitrina.spot.intensity = 5.2 * 5 * (0.6 * (sum / n) + 0.4 * max) * k;
+    this.room.vitrina.spot.intensity = 5.2 * 2.9 * (0.6 * (sum / n) + 0.4 * max) * k;
   }
 
   private updateSpotlights(mode: Mode): void {

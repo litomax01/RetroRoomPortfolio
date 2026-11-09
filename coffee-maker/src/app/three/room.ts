@@ -152,7 +152,7 @@ export function buildRoom(): RoomParts {
   };
   addLight(C.warm, 30, 14, -1.4, 5.6, 1.5);
   // Cada luz se calcula por pixel en todos los materiales: se fusionaron los rellenos calidos en uno solo
-  addLight('#ffc084', 26, 12, 0.3, 4.6, 5.0);
+  addLight('#ffc084', 21, 12, 0.3, 4.6, 5.0);
   // Juego de color por zonas: turquesa a la izquierda, magenta a la derecha, índigo al fondo
   const washTeal = addLight('#19e6d2', 14, 9, -7.2, 3.4, 0.5);
   const washMagenta = addLight('#ff2fa8', 14, 9, 7.2, 3.4, 0.5);
