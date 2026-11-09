@@ -548,7 +548,6 @@ export function buildRoom(): RoomParts {
   bt.rotation.y = btPostRot;
   bt.scale.setScalar(1.8);
   root.add(bt);
-  addLight('#ffd9a0', 8, 5, btPost.x, 3.4, btPost.z + 1.4);
 
   const mkLeg = (x: number) => {
     const g = new THREE.Group();

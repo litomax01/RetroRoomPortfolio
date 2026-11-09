@@ -201,9 +201,9 @@ export class Experience {
   private readonly reveal = { v: 1 };
   private readonly room: RoomParts;
   private portrait: HTMLImageElement | null = null;
-  /** Un unico foco de seccion que se mueve al cartel o al cuadro (antes eran dos luces siempre presentes). */
-  private sectionSpot!: THREE.SpotLight;
-  private readonly sectionAt: Partial<Record<Mode, { from: THREE.Vector3; to: THREE.Vector3 }>> = {};
+  /** Luz de efectos compartida: realza el cartel o el cuadro de la seccion y da el destello de Evangelion. */
+  private fxBusy = false;
+  private readonly sectionAt: Partial<Record<Mode, { pos: THREE.Vector3; peak: number }>> = {};
   private outline!: OutlinePass;
   private outlineKey = '';
   private hovered: THREE.Object3D | null = null;
@@ -754,10 +754,17 @@ export class Experience {
     this.evaBusy = true;
     const g = this.room.eva;
     const light = this.room.lights.eva;
+    gsap.killTweensOf(light);
+    light.position.set(6.0, 3.4, -3.6);
     const reduce = this.store.reducedMotion();
+    this.fxBusy = true;
+    const restore = () => {
+      this.fxBusy = false;
+      this.updateSpotlights(this.currentMode);
+    };
     this.sounds.roar();
     if (reduce) {
-      gsap.fromTo(light, { intensity: 40 }, { intensity: 0, duration: 1.2, onComplete: () => { this.evaBusy = false; } });
+      gsap.fromTo(light, { intensity: 40 }, { intensity: 0, duration: 1.2, onComplete: restore });
       return;
     }
     const arm = this.evaArm;
@@ -781,7 +788,7 @@ export class Experience {
         .timeline({ onUpdate: apply, onComplete: () => { Object.assign(pose, { shoulder: 0, elbow: 0, yaw: 0, nod: 0, lean: 0, sway: 0 }); apply(); this.evaBusy = false; } })
         .to(pose, { nod: -0.25, duration: 0.25, ease: 'power2.out' })
         .to(pose, { shoulder: 1.6, elbow: 1.0, nod: 0.12, yaw: -0.35, lean: 0.05, sway: 0.12, duration: 0.7, ease: 'power2.out' }, '>-0.05')
-        .fromTo(light, { intensity: 40 }, { intensity: 0, duration: 3.4, ease: 'power2.out' }, '<')
+        .fromTo(light, { intensity: 40 }, { intensity: 0, duration: 3.4, ease: 'power2.out', onComplete: restore }, '<')
         .to(pose, { elbow: 1.45, duration: 0.2, ease: 'sine.inOut' })
         .to(pose, { elbow: 0.55, duration: 0.3, ease: 'sine.inOut', repeat: 5, yoyo: true })
         .to(pose, { elbow: 1.0, duration: 0.2, ease: 'sine.inOut' });
@@ -803,7 +810,7 @@ export class Experience {
       .to(g.rotation, { y: y0 + Math.PI * 2, duration: 0.95, ease: 'power2.inOut' }, '<')
       .to(g.position, { y: 0, duration: 0.4, ease: 'bounce.out' }, '>-0.05')
       .to(g.scale, { x: 1, y: 1, z: 1, duration: 0.3, ease: 'back.out(3)' }, '<')
-      .fromTo(light, { intensity: 70 }, { intensity: 0, duration: 1.4, ease: 'power2.out' }, '<');
+      .fromTo(light, { intensity: 70 }, { intensity: 0, duration: 1.4, ease: 'power2.out', onComplete: restore }, '<');
   }
 
   private catPath: THREE.Vector2[] = [];
@@ -1222,14 +1229,8 @@ export class Experience {
 
   /** Focos de sección: iluminan suavemente el cartel o el cuadro al abrir About / Projects. */
   private setupSpotlights(): void {
-    const l = new THREE.SpotLight('#fff0d2', 0, 14, 0.42, 0.85, 1.6);
-    this.scene.add(l, l.target);
-    this.sectionSpot = l;
-    const mk = (mode: Mode, from: THREE.Vector3, to: THREE.Vector3) => {
-      this.sectionAt[mode] = { from, to };
-    };
-    mk('about', V(-1.4, 6.0, -1.8), V(-1.4, 1.9, -5.4));
-    mk('projects', V(4.8, 5.4, -0.5), V(7.94, 3.2, -0.5));
+    this.sectionAt['about'] = { pos: V(-1.4, 3.3, -3.4), peak: 15 };
+    this.sectionAt['projects'] = { pos: V(6.4, 3.4, 0.2), peak: 2.5 };
   }
 
   private updateBottles(): void {
@@ -1249,15 +1250,11 @@ export class Experience {
   }
 
   private updateSpotlights(mode: Mode): void {
-    const peaks: Partial<Record<Mode, number>> = { about: 70, projects: 8 };
-    const l = this.sectionSpot;
+    if (this.fxBusy) return; // el destello de Evangelion usa la misma luz; al terminar se restaura
+    const l = this.room.lights.eva;
     const at = this.sectionAt[mode];
-    if (at) {
-      // Se recoloca sobre el nuevo objetivo y sube de intensidad
-      l.position.copy(at.from);
-      l.target.position.copy(at.to);
-    }
-    gsap.to(l, { intensity: at ? (peaks[mode] ?? 0) : 0, duration: this.store.reducedMotion() ? 0 : 1.2, ease: 'power2.out' });
+    if (at) l.position.copy(at.pos);
+    gsap.to(l, { intensity: at ? at.peak : 0, duration: this.store.reducedMotion() ? 0 : 1.2, ease: 'power2.out', overwrite: true });
   }
 
   /** Resalta el objeto interactivo bajo el cursor (panel más brillante o halo cálido). */
