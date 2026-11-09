@@ -403,10 +403,10 @@ export class Experience {
       () => this.loadTv(),
     ];
     const deferred: Array<() => Promise<unknown>> = [
+      () => this.loadHost(),
       () => this.loadProp('models/pool/pool.glb', this.room.pool, POOL_FOOTPRINT, POOL_YAW, true),
       () => this.loadProp('models/majora/scene.gltf', this.room.mask, MASK_HEIGHT, MASK_YAW, false, true),
       () => this.loadProp('models/foosball/foosball.glb', this.room.foosball, FOOSBALL_FOOTPRINT, FOOSBALL_YAW),
-      () => this.loadHost(),
       () => this.loadProp('models/evangelion/scene.gltf', this.room.eva, EVA_HEIGHT, EVA_YAW, false, true),
       () =>
         Promise.all([
@@ -482,11 +482,17 @@ export class Experience {
             }
           }
         });
+        // Presupuesto de ~6 ms por fotograma: fluido en equipos rapidos y sin eternizarse en los lentos
+        let t0 = performance.now();
         for (const t of fresh) {
           this.renderer.initTexture(t);
-          await frame();
+          if (performance.now() - t0 > 6) {
+            await frame();
+            t0 = performance.now();
+          }
         }
-        await this.renderer.compileAsync(this.scene, this.camera);
+        // La compilacion va en segundo plano: la descarga del siguiente prop no la espera
+        void this.renderer.compileAsync(this.scene, this.camera).catch(() => undefined);
       } catch {
         /* un prop que falla no rompe la escena */
       }
