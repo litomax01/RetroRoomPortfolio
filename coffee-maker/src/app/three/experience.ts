@@ -201,8 +201,9 @@ export class Experience {
   private readonly reveal = { v: 1 };
   private readonly room: RoomParts;
   private portrait: HTMLImageElement | null = null;
-  private readonly spots: Partial<Record<Mode, THREE.SpotLight>> = {};
-  private readonly hoverLight = new THREE.PointLight('#ffd9a0', 0, 4, 2);
+  /** Un unico foco de seccion que se mueve al cartel o al cuadro (antes eran dos luces siempre presentes). */
+  private sectionSpot!: THREE.SpotLight;
+  private readonly sectionAt: Partial<Record<Mode, { from: THREE.Vector3; to: THREE.Vector3 }>> = {};
   private outline!: OutlinePass;
   private outlineKey = '';
   private hovered: THREE.Object3D | null = null;
@@ -375,7 +376,6 @@ export class Experience {
     this.music.onEnded = () => void this.next();
     this.music.setVolume(this.store.volume(), this.store.muted());
     this.setupSpotlights();
-    this.scene.add(this.hoverLight);
     window.addEventListener('resize', this.onResize);
     canvas.addEventListener('pointerdown', this.onPointerDown);
     canvas.addEventListener('pointerup', this.onPointerUp);
@@ -1186,12 +1186,11 @@ export class Experience {
 
   /** Focos de sección: iluminan suavemente el cartel o el cuadro al abrir About / Projects. */
   private setupSpotlights(): void {
+    const l = new THREE.SpotLight('#fff0d2', 0, 14, 0.42, 0.85, 1.6);
+    this.scene.add(l, l.target);
+    this.sectionSpot = l;
     const mk = (mode: Mode, from: THREE.Vector3, to: THREE.Vector3) => {
-      const l = new THREE.SpotLight('#fff0d2', 0, 14, 0.42, 0.85, 1.6);
-      l.position.copy(from);
-      l.target.position.copy(to);
-      this.scene.add(l, l.target);
-      this.spots[mode] = l;
+      this.sectionAt[mode] = { from, to };
     };
     mk('about', V(-1.4, 6.0, -1.8), V(-1.4, 1.9, -5.4));
     mk('projects', V(4.8, 5.4, -0.5), V(7.94, 3.2, -0.5));
@@ -1199,20 +1198,30 @@ export class Experience {
 
   private updateBottles(): void {
     const k = 0.35 + 0.65 * this.vis.v;
+    let sum = 0;
+    let max = 0;
     this.room.vitrina.bottles.forEach((b, i) => {
       const st = this.bState[i];
       if (!st) return;
       b.group.position.y = b.baseY + st.lift * 0.055;
-      b.spot.intensity = 5.2 * st.lit * k;
+      sum += st.lit;
+      max = Math.max(max, st.lit);
     });
+    const n = this.room.vitrina.bottles.length || 1;
+    // Foco unico: mezcla la media con la botella mas iluminada (la activa)
+    this.room.vitrina.spot.intensity = 5.2 * 5 * (0.6 * (sum / n) + 0.4 * max) * k;
   }
 
   private updateSpotlights(mode: Mode): void {
     const peaks: Partial<Record<Mode, number>> = { about: 70, projects: 8 };
-    for (const key of Object.keys(this.spots) as Mode[]) {
-      const l = this.spots[key]!;
-      gsap.to(l, { intensity: key === mode ? (peaks[key] ?? 0) : 0, duration: this.store.reducedMotion() ? 0 : 1.2, ease: 'power2.out' });
+    const l = this.sectionSpot;
+    const at = this.sectionAt[mode];
+    if (at) {
+      // Se recoloca sobre el nuevo objetivo y sube de intensidad
+      l.position.copy(at.from);
+      l.target.position.copy(at.to);
     }
+    gsap.to(l, { intensity: at ? (peaks[mode] ?? 0) : 0, duration: this.store.reducedMotion() ? 0 : 1.2, ease: 'power2.out' });
   }
 
   /** Resalta el objeto interactivo bajo el cursor (panel más brillante o halo cálido). */

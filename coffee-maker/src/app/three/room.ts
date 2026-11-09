@@ -151,10 +151,8 @@ export function buildRoom(): RoomParts {
     return l;
   };
   addLight(C.warm, 30, 14, -1.4, 5.6, 1.5);
-  addLight(C.magenta, 9, 9, 5.2, 2.6, -4.2, true);
-  addLight(C.cyan, 7, 8, 3.2, 2.2, -4.4, true);
-  addLight('#ffcf8a', 16, 9, -3.9, 4.4, 5.0);
-  addLight('#ffb070', 12, 10, 4.4, 4.8, 5.0);
+  // Cada luz se calcula por pixel en todos los materiales: se fusionaron los rellenos calidos en uno solo
+  addLight('#ffc084', 26, 12, 0.3, 4.6, 5.0);
   // Juego de color por zonas: turquesa a la izquierda, magenta a la derecha, índigo al fondo
   const washTeal = addLight('#19e6d2', 14, 9, -7.2, 3.4, 0.5);
   const washMagenta = addLight('#ff2fa8', 14, 9, 7.2, 3.4, 0.5);
@@ -320,7 +318,6 @@ export function buildRoom(): RoomParts {
   root.add(maskGroup);
   mesh(box(0.08, 2.5, 2.7), std('#120d22', { roughness: 0.6, metalness: 0.25 }), [-7.93, 3.55, 0.5], root);
   mesh(box(0.05, 2.62, 2.82), std('#ffd84d', { roughness: 0.4, metalness: 0.6 }), [-7.96, 3.55, 0.5], root);
-  addLight('#b86bff', 9, 7, -6.2, 3.6, 0.5, true);
   hitbox([1.4, 2.4, 2.6], [-7.45, 3.55, 0.5], 'mask');
 
   void document.fonts?.load('80px "Pacifico"').then(() => neonPanels.forEach(([p, t, c]) => p.redraw((g, w, h) => drawNeonWord(g, w, h, t, c))));

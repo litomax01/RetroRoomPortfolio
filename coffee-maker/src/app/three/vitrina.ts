@@ -24,7 +24,6 @@ export interface BottlePart {
   baseY: number;
   /** Posición X local de la botella. */
   x: number;
-  spot: THREE.SpotLight;
 }
 
 export interface VitrinaParts {
@@ -32,6 +31,8 @@ export interface VitrinaParts {
   /** Título grabado en la parte alta del marco. */
   title: Panel;
   bottles: BottlePart[];
+  /** Foco compartido que ilumina las botellas. */
+  spot: THREE.SpotLight;
 }
 
 const bottleX = (i: number) => (i - (SLOTS - 1) / 2) * 0.74;
@@ -223,11 +224,6 @@ export function buildVitrina(clickable: THREE.Object3D[]): VitrinaParts {
     group.position.set(x, baseY, 0.2);
     root.add(group);
 
-    const spot = new THREE.SpotLight('#dff2ff', 0, 5, 0.36, 0.8, 1.6);
-    spot.position.set(x, 1.15, 1.0);
-    spot.target.position.set(x, baseY + 0.35, 0.2);
-    root.add(spot, spot.target);
-
     const hit = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.8, 0.4), new THREE.MeshBasicMaterial({ visible: false }));
     hit.position.set(x, baseY + 0.4, 0.2);
     hit.userData['action'] = 'bottle';
@@ -236,8 +232,13 @@ export function buildVitrina(clickable: THREE.Object3D[]): VitrinaParts {
     root.add(hit);
     clickable.push(hit);
 
-    bottles.push({ group, baseY, x, spot });
+    bottles.push({ group, baseY, x });
   }
+  // Un solo foco ancho sobre la repisa (antes uno por botella: 5 luces calculadas por pixel en toda la sala)
+  const spot = new THREE.SpotLight('#dff2ff', 0, 7, 0.75, 0.8, 1.4);
+  spot.position.set(0, 1.5, 2.8);
+  spot.target.position.set(0, baseY + 0.35, 0.2);
+  root.add(spot, spot.target);
 
-  return { root, title, bottles };
+  return { root, title, bottles, spot };
 }
