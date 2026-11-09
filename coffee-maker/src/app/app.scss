@@ -2673,3 +2673,11 @@ a.primary,
     max-height: calc(100dvh - 92px - 7.5rem);
   }
 }
+
+/* Pantallas medianas (laptops): la tarjeta se pega a la izquierda para no tapar al anfitrion, que la presenta a la derecha */
+@media (min-width: 641px) and (max-width: 1699px) {
+  .menu-card {
+    left: clamp(12px, 2.5vw, 375px);
+    width: min(560px, max(380px, 42vw));
+  }
+}
