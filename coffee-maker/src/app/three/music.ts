@@ -22,7 +22,7 @@ export class MusicPlayer {
   onEnded: (() => void) | null = null;
 
   constructor(private readonly tracks: Track[]) {
-    this.audio.preload = 'auto';
+    this.audio.preload = 'none';
     this.audio.volume = this.level;
     this.audio.addEventListener('ended', () => this.onEnded?.());
   }

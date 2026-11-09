@@ -383,6 +383,7 @@ export class Experience {
 
   private async loadAssets(): Promise<void> {
     const started = performance.now();
+    // Lo esencial para mostrar la sala; el resto entra despues, sin bloquear la pantalla de carga
     const steps: Array<() => Promise<unknown>> = [
       () => this.loadPbr(),
       () => this.loadHdr(),
@@ -390,6 +391,8 @@ export class Experience {
       () => this.loadArcade(),
       () => this.loadJukebox(),
       () => this.loadTv(),
+    ];
+    const deferred: Array<() => Promise<unknown>> = [
       () => this.loadProp('models/pool/pool.glb', this.room.pool, POOL_FOOTPRINT, POOL_YAW, true),
       () => this.loadProp('models/majora/scene.gltf', this.room.mask, MASK_HEIGHT, MASK_YAW, false, true),
       () => this.loadProp('models/foosball/foosball.glb', this.room.foosball, FOOSBALL_FOOTPRINT, FOOSBALL_YAW),
@@ -441,6 +444,20 @@ export class Experience {
     await new Promise((r) => setTimeout(r, wait));
     this.start();
     this.store.ready.set(true);
+    void this.loadDeferred(deferred);
+  }
+
+  /** Props secundarios: se descargan de a uno cuando la escena ya es interactiva. */
+  private async loadDeferred(steps: Array<() => Promise<unknown>>): Promise<void> {
+    for (const step of steps) {
+      try {
+        await step();
+        this.sync();
+        await this.renderer.compileAsync(this.scene, this.camera);
+      } catch {
+        /* un prop que falla no rompe la escena */
+      }
+    }
   }
 
   /**
